@@ -1,1 +1,11 @@
-# ci-cd-pipeline-k8s-eks
+GitHub
+   ↓
+Jenkins
+   ↓
+Docker Build
+   ↓
+AWS ECR
+   ↓
+Amazon EKS
+   ↓
+Prometheus + Grafana
