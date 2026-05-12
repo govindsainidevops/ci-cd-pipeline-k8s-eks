@@ -22,17 +22,13 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-
 metadata:
   name: devops-service
-
 spec:
   selector:
     app: devops-app
-
   ports:
     - protocol: TCP
       port: 80
       targetPort: 5000
-
   type: LoadBalancer
