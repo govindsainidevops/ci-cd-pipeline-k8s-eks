@@ -1,34 +1,38 @@
-# AWS EKS Deployment Guide — CI/CD Pipeline with Kubernetes Monitoring
+# 🚀 CI/CD Pipeline Deployment on AWS EKS
 
-## 🚀 Project Overview
+## 📌 Project Overview
 
-This guide explains how to deploy the CI/CD Kubernetes monitoring project to Amazon EKS using:
+This project demonstrates a complete DevOps workflow using:
 
-- Jenkins
-- Docker
-- Kubernetes
-- Amazon EKS
-- Amazon ECR
-- Prometheus
-- Grafana
-- HPA (Horizontal Pod Autoscaler)
+* Docker
+* Jenkins
+* Kubernetes
+* AWS EKS
+* Amazon ECR
+* Prometheus
+* Grafana
+* Horizontal Pod Autoscaler (HPA)
+
+The application is containerized, pushed to Amazon ECR, and deployed on AWS EKS with monitoring and scaling enabled.
 
 ---
 
 # 🏗️ Architecture
 
 ```text
-GitHub
-   ↓
-Jenkins
-   ↓
+Developer Push
+      ↓
+GitHub Repository
+      ↓
+Jenkins Pipeline
+      ↓
 Docker Build
-   ↓
+      ↓
 Amazon ECR
-   ↓
+      ↓
 Amazon EKS
-   ↓
-Prometheus + Grafana
+      ↓
+Prometheus + Grafana Monitoring
 ```
 
 ---
@@ -37,97 +41,105 @@ Prometheus + Grafana
 
 Install the following tools:
 
-| Tool | Purpose |
-|---|---|
-| AWS CLI | AWS authentication |
-| kubectl | Kubernetes CLI |
-| eksctl | EKS cluster creation |
-| Docker Desktop | Build Docker images |
+| Tool           | Purpose              |
+| -------------- | -------------------- |
+| AWS CLI        | AWS Authentication   |
+| kubectl        | Kubernetes CLI       |
+| eksctl         | EKS Cluster Creation |
+| Docker Desktop | Build Docker Images  |
+| Jenkins        | CI/CD Pipeline       |
 
 ---
 
-# 🔧 Step 1 — Install AWS CLI
-
-Verify installation:
-
-```bash
-aws --version
-```
-
----
-
-# 🔧 Step 2 — Install eksctl
-
-Verify installation:
-
-```bash
-eksctl version
-```
-
----
-
-# 🔧 Step 3 — Verify kubectl
-
-```bash
-kubectl version --client
-```
-
----
-
-# 🔐 Step 4 — Configure AWS CLI
-
-Run:
+# 🔐 Step 1 — Configure AWS CLI
 
 ```bash
 aws configure
 ```
 
 Provide:
-- AWS Access Key
-- AWS Secret Key
-- Region → `ap-south-1`
-- Output format → `json`
 
----
+* AWS Access Key
+* AWS Secret Access Key
+* Region → `us-east-1`
+* Output format → `json`
 
-# ☸️ Step 5 — Create EKS Cluster
+Verify:
 
 ```bash
-eksctl create cluster \
---name devops-cluster \
---region ap-south-1 \
---nodegroup-name devops-nodes \
---node-type t3.medium \
---nodes 2
+aws sts get-caller-identity
 ```
 
 ---
 
-# ✅ Step 6 — Verify EKS Cluster
+# ☸️ Step 2 — Create EKS Cluster
+
+## ✅ Recommended Working Configuration
+
+```bash
+eksctl create cluster \
+--name devops-cluster \
+--region us-east-1 \
+--zones us-east-1a,us-east-1b \
+--nodegroup-name devops-nodes \
+--node-type t3.small \
+--nodes 1
+```
+
+---
+
+# 📌 Why This Configuration?
+
+| Setting   | Reason                            |
+| --------- | --------------------------------- |
+| t3.small  | Lower vCPU usage                  |
+| 1 Node    | Avoid quota exhaustion            |
+| us-east-1 | Stable region                     |
+| 2 AZs     | Required by newer eksctl versions |
+
+---
+
+# ✅ Verify Cluster Creation
 
 ```bash
 kubectl get nodes
 ```
 
----
+Expected Output:
 
-# 📦 Step 7 — Create Amazon ECR Repository
-
-```bash
-aws ecr create-repository --repository-name devops-app
+```text
+STATUS = Ready
 ```
 
 ---
 
-# 🔐 Step 8 — Login to Amazon ECR
+# 📦 Step 3 — Create Amazon ECR Repository
 
 ```bash
-aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com
+aws ecr create-repository \
+--repository-name devops-app \
+--region us-east-1
 ```
 
 ---
 
-# 🐳 Step 9 — Build Docker Image
+# 🔐 Step 4 — Login to Amazon ECR
+
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 336984083625.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Expected Output:
+
+```text
+Login Succeeded
+```
+
+---
+
+# 🐳 Step 5 — Build Docker Image
+
+Inside project directory:
 
 ```bash
 docker build -t devops-app:v1 .
@@ -135,28 +147,28 @@ docker build -t devops-app:v1 .
 
 ---
 
-# 🏷️ Step 10 — Tag Docker Image
+# 🏷️ Step 6 — Tag Docker Image
 
 ```bash
-docker tag devops-app:v1 <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/devops-app:v1
+docker tag devops-app:v1 336984083625.dkr.ecr.us-east-1.amazonaws.com/devops-app:v1
 ```
 
 ---
 
-# 🚀 Step 11 — Push Docker Image to ECR
+# 🚀 Step 7 — Push Docker Image to ECR
 
 ```bash
-docker push <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/devops-app:v1
+docker push 336984083625.dkr.ecr.us-east-1.amazonaws.com/devops-app:v1
 ```
 
 ---
 
-# ☸️ Step 12 — Update Kubernetes Deployment
+# ☸️ Step 8 — Update Kubernetes Deployment
 
-Update `k8s-deployment.yaml`:
+Update image inside `k8s-deployment.yaml`
 
 ```yaml
-image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/devops-app:v1
+image: 336984083625.dkr.ecr.us-east-1.amazonaws.com/devops-app:v1
 ```
 
 Remove:
@@ -167,47 +179,65 @@ imagePullPolicy: Never
 
 ---
 
-# 🚀 Step 13 — Deploy Application to EKS
+# 🌐 Step 9 — Kubernetes Service Configuration
+
+Use `LoadBalancer` service type.
+
+```yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: devops-service
+
+spec:
+  selector:
+    app: devops-app
+
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+
+  type: LoadBalancer
+```
+
+---
+
+# 🚀 Step 10 — Deploy Application to EKS
 
 ```bash
 kubectl apply -f k8s-deployment.yaml
 ```
 
-Verify:
+---
+
+# 🔍 Step 11 — Verify Deployment
 
 ```bash
 kubectl get pods
+kubectl get svc
 ```
 
 ---
 
-# 🌐 Step 14 — Expose Application
+# 🌍 Step 12 — Access Application
 
-Update Kubernetes service type:
-
-```yaml
-type: LoadBalancer
-```
-
-Apply configuration:
-
-```bash
-kubectl apply -f k8s-deployment.yaml
-```
-
----
-
-# 🌍 Step 15 — Get External URL
+Wait for external IP:
 
 ```bash
 kubectl get svc
 ```
 
-Open the external load balancer URL shown in EXTERNAL-IP.
+Open:
+
+```text
+http://<EXTERNAL-IP>
+```
 
 ---
 
-# 📊 Step 16 — Deploy Prometheus
+# 📊 Step 13 — Deploy Prometheus
 
 ```bash
 kubectl apply -f prometheus-deployment.yaml
@@ -215,7 +245,7 @@ kubectl apply -f prometheus-deployment.yaml
 
 ---
 
-# 📈 Step 17 — Deploy Grafana
+# 📈 Step 14 — Deploy Grafana
 
 ```bash
 kubectl apply -f grafana-deployment.yaml
@@ -223,25 +253,9 @@ kubectl apply -f grafana-deployment.yaml
 
 ---
 
-# 🌐 Step 18 — Expose Grafana
+# 🔐 Step 15 — Login to Grafana
 
-Update Grafana service:
-
-```yaml
-type: LoadBalancer
-```
-
-Apply changes:
-
-```bash
-kubectl apply -f grafana-deployment.yaml
-```
-
----
-
-# 🔐 Step 19 — Login to Grafana
-
-Default credentials:
+Default Credentials:
 
 ```text
 Username: admin
@@ -250,16 +264,13 @@ Password: admin
 
 ---
 
-# 🔗 Step 20 — Configure Prometheus Data Source
+# 🔗 Step 16 — Configure Prometheus Data Source
 
-Inside Grafana:
-
-```text
-Connections → Data Sources → Add Data Source
-```
+Grafana → Connections → Data Sources → Add Data Source
 
 Choose:
-- Prometheus
+
+* Prometheus
 
 URL:
 
@@ -269,9 +280,9 @@ http://prometheus-service:9090
 
 ---
 
-# 📈 Step 21 — Verify Metrics
+# 📈 Step 17 — Verify Metrics
 
-Prometheus query:
+Example Query:
 
 ```text
 app_requests_total
@@ -279,7 +290,7 @@ app_requests_total
 
 ---
 
-# ⚖️ Step 22 — Deploy Horizontal Pod Autoscaler
+# ⚖️ Step 18 — Deploy HPA
 
 ```bash
 kubectl apply -f hpa.yaml
@@ -287,13 +298,7 @@ kubectl apply -f hpa.yaml
 
 ---
 
-# 📊 Step 23 — Install Kubernetes Metrics Server
-
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-
-Verify:
+# 📊 Step 19 — Verify Metrics Server
 
 ```bash
 kubectl top nodes
@@ -301,19 +306,19 @@ kubectl top nodes
 
 ---
 
-# 🔥 Step 24 — Test Auto Scaling
+# 🔥 Step 20 — Test Auto Scaling
 
 ```bash
 kubectl run -i --tty load-generator --image=busybox -- sh
 ```
 
-Inside pod:
+Inside container:
 
 ```bash
 while true; do wget -q -O- http://devops-service; done
 ```
 
-Monitor scaling:
+Monitor:
 
 ```bash
 kubectl get hpa -w
@@ -321,7 +326,7 @@ kubectl get hpa -w
 
 ---
 
-# 🛠️ Useful Kubernetes Commands
+# 🛠️ Useful Commands
 
 ## Get Pods
 
@@ -333,12 +338,6 @@ kubectl get pods
 
 ```bash
 kubectl get svc
-```
-
-## Get Endpoints
-
-```bash
-kubectl get endpoints
 ```
 
 ## View Logs
@@ -355,78 +354,86 @@ kubectl rollout restart deployment devops-app
 
 ---
 
-# 🚨 Common Troubleshooting
+# 🚨 Troubleshooting
 
-## Pod CrashLoopBackOff
+## No Nodes Found
 
-```bash
-kubectl logs <pod-name>
-```
-
-## Service Not Accessible
+Update kubeconfig:
 
 ```bash
-kubectl describe svc devops-service
-kubectl get endpoints
-```
-
-## Prometheus Target DOWN
-
-Verify metrics endpoint:
-
-```text
-http://localhost:8081/metrics
+aws eks update-kubeconfig \
+--region us-east-1 \
+--name devops-cluster
 ```
 
 ---
 
-# 💰 Important AWS Cost Note
-
-Delete cluster after testing:
+## Check Current Context
 
 ```bash
-eksctl delete cluster --name devops-cluster
+kubectl config get-contexts
 ```
 
 ---
 
-# 🚀 Future Enhancements
+## Verify AWS Quotas
 
-Recommended next upgrades:
-
-- Helm Charts
-- Kubernetes Ingress
-- GitHub Actions
-- Loki Logging
-- Terraform Infrastructure
-- SSL/TLS
-- ArgoCD GitOps
+```bash
+aws service-quotas get-service-quota \
+--service-code ec2 \
+--quota-code L-1216C47A
+```
 
 ---
 
-# 🎯 Resume Summary
+# 💰 Cleanup
 
-Built and deployed a production-grade CI/CD pipeline integrating:
+Delete cluster after practice:
 
-- Docker
-- Kubernetes
-- Amazon EKS
-- Jenkins
-- Prometheus
-- Grafana
-- HPA Auto Scaling
-- Monitoring & Observability
+```bash
+eksctl delete cluster \
+--name devops-cluster \
+--region us-east-1
+```
+
+---
+
+# 🚀 Future Improvements
+
+* Jenkins Full Automation
+* Terraform
+* ArgoCD GitOps
+* Helm Charts
+* Loki Logging
+* AlertManager
+* SSL/TLS
+* Kubernetes Ingress
+
+---
+
+# 🎯 Resume-Worthy Skills Demonstrated
+
+✅ Docker
+✅ Kubernetes
+✅ AWS EKS
+✅ Amazon ECR
+✅ Jenkins
+✅ Prometheus
+✅ Grafana
+✅ HPA
+✅ Cloud Troubleshooting
+✅ Monitoring & Observability
+✅ CI/CD Pipeline
 
 ---
 
 # 🙌 Final Outcome
 
-You now have a complete cloud-native DevOps portfolio project demonstrating:
+Successfully deployed a cloud-native DevOps application on AWS EKS with:
 
-✅ CI/CD  
-✅ Kubernetes  
-✅ Monitoring  
-✅ Observability  
-✅ Cloud Deployment  
-✅ Auto Scaling  
-✅ Troubleshooting Skills
+* CI/CD concepts
+* Container orchestration
+* Monitoring
+* Scaling
+* Cloud deployment
+* Troubleshooting experience
